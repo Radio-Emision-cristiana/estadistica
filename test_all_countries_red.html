@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba - Todos los Países con Círculos Rojos</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .status {
+            background: #f44336;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+        .info-panel {
+            padding: 20px;
+            background: #f9f9f9;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #f44336;
+        }
+        .stat-number {
+            font-size: 20px;
+            font-weight: bold;
+            color: #f44336;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        .legend-circle {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid #cc0000;
+        }
+        .legend-circle.active {
+            background: #ff4444;
+            opacity: 0.8;
+        }
+        .legend-circle.inactive {
+            background: #ff4444;
+            opacity: 0.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔴 Mapa Global - Todos los Países</h1>
+            <p>Círculos rojos en TODOS los países (con y sin oyentes)</p>
+        </div>
+        
+        <div class="status">
+            🔴 Mostrando círculos rojos en TODOS los países del mundo
+        </div>
+        
+        <div id="map"></div>
+        
+        <div class="info-panel">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-listeners">0</div>
+                    <div class="stat-label">Oyentes Totales</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="total-countries">0</div>
+                    <div class="stat-label">Países Totales</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="active-countries">0</div>
+                    <div class="stat-label">Países Activos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="inactive-countries">0</div>
+                    <div class="stat-label">Países Inactivos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">ROJOS</div>
+                    <div class="stat-label">Color Círculos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">GLOBAL</div>
+                    <div class="stat-label">Cobertura</div>
+                </div>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-circle active"></div>
+                    <span>Países con oyentes (círculos grandes)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-circle inactive"></div>
+                    <span>Países sin oyentes (círculos pequeños)</span>
+                </div>
+            </div>
+            
+            <div style="background: #ffebee; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #f44336;">
+                <h4>🔴 Información de Visualización:</h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Todos los países visible:</strong> Círculos rojos en cada país</li>
+                    <li><strong>Tamaño variable:</strong> Grandes para países con oyentes, pequeños para países sin oyentes</li>
+                    <li><strong>Transparencia:</strong> Más opaco para activos, semi-transparente para inactivos</li>
+                    <li><strong>Cobertura mundial:</strong> Europa, América, Asia, África, Oceanía</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Datos completos de oyentes por país (incluyendo países con 0 oyentes)
+        const listenersData = {
+            // Países con oyentes
+            'México': { lat: 23.6345, lng: -102.5528, count: 145, flag: '🇲🇽' },
+            'Estados Unidos': { lat: 39.8283, lng: -98.5795, count: 89, flag: '🇺🇸' },
+            'España': { lat: 40.4637, lng: -3.7492, count: 67, flag: '🇪🇸' },
+            'Argentina': { lat: -38.4161, lng: -63.6167, count: 54, flag: '🇦🇷' },
+            'Colombia': { lat: 4.5709, lng: -74.2973, count: 43, flag: '🇨🇴' },
+            'Chile': { lat: -35.6751, lng: -71.5430, count: 32, flag: '🇨🇱' },
+            'Perú': { lat: -9.1900, lng: -75.0152, count: 28, flag: '🇵🇪' },
+            'Venezuela': { lat: 6.4238, lng: -66.5897, count: 25, flag: '🇻🇪' },
+            'Reino Unido': { lat: 55.3781, lng: -3.4360, count: 19, flag: '🇬🇧' },
+            'Canadá': { lat: 56.1304, lng: -106.3468, count: 16, flag: '🇨🇦' },
+            'Francia': { lat: 46.2276, lng: 2.2137, count: 14, flag: '🇫🇷' },
+            'Brasil': { lat: -14.2350, lng: -51.9253, count: 12, flag: '🇧🇷' },
+            'Alemania': { lat: 51.1657, lng: 10.4515, count: 11, flag: '🇩🇪' },
+            'Italia': { lat: 41.8719, lng: 12.5674, count: 8, flag: '🇮🇹' },
+            'Japón': { lat: 36.2048, lng: 138.2529, count: 6, flag: '🇯🇵' },
+            
+            // Países sin oyentes (también mostrarán círculos rojos pequeños)
+            'Australia': { lat: -25.2744, lng: 133.7751, count: 0, flag: '🇦🇺' },
+            'China': { lat: 35.8617, lng: 104.1954, count: 0, flag: '🇨🇳' },
+            'India': { lat: 20.5937, lng: 78.9629, count: 0, flag: '🇮🇳' },
+            'Rusia': { lat: 61.5240, lng: 105.3188, count: 0, flag: '🇷🇺' },
+            'Sudáfrica': { lat: -30.5595, lng: 22.9375, count: 0, flag: '🇿🇦' },
+            'Egipto': { lat: 26.8206, lng: 30.8025, count: 0, flag: '🇪🇬' },
+            'Nigeria': { lat: 9.0820, lng: 8.6753, count: 0, flag: '🇳🇬' },
+            'Marruecos': { lat: 31.7917, lng: -7.0926, count: 0, flag: '🇲🇦' },
+            'Turquía': { lat: 38.9637, lng: 35.2433, count: 0, flag: '🇹🇷' },
+            'Grecia': { lat: 39.0742, lng: 21.8243, count: 0, flag: '🇬🇷' },
+            'Portugal': { lat: 39.3999, lng: -8.2245, count: 0, flag: '🇵🇹' },
+            'Países Bajos': { lat: 52.1326, lng: 5.2913, count: 0, flag: '🇳🇱' },
+            'Bélgica': { lat: 50.5039, lng: 4.4699, count: 0, flag: '🇧🇪' },
+            'Suiza': { lat: 46.8182, lng: 8.2275, count: 0, flag: '🇨🇭' },
+            'Austria': { lat: 47.5162, lng: 14.5501, count: 0, flag: '🇦🇹' },
+            'Noruega': { lat: 60.4720, lng: 8.4689, count: 0, flag: '🇳🇴' },
+            'Suecia': { lat: 60.1282, lng: 18.6435, count: 0, flag: '🇸🇪' },
+            'Dinamarca': { lat: 56.2639, lng: 9.5018, count: 0, flag: '🇩🇰' },
+            'Finlandia': { lat: 61.9241, lng: 25.7482, count: 0, flag: '🇫🇮' },
+            'Polonia': { lat: 51.9194, lng: 19.1451, count: 0, flag: '🇵🇱' },
+            'República Checa': { lat: 49.8175, lng: 15.4730, count: 0, flag: '🇨🇿' },
+            'Hungría': { lat: 47.1625, lng: 19.5033, count: 0, flag: '🇭🇺' },
+            'Rumania': { lat: 45.9432, lng: 24.9668, count: 0, flag: '🇷🇴' },
+            'Bulgaria': { lat: 42.7339, lng: 25.4858, count: 0, flag: '🇧🇬' },
+            'Croacia': { lat: 45.1, lng: 15.2, count: 0, flag: '🇭🇷' },
+            'Serbia': { lat: 44.0165, lng: 21.0059, count: 0, flag: '🇷🇸' },
+            'Ucrania': { lat: 48.3794, lng: 31.1656, count: 0, flag: '🇺🇦' },
+            'Estonia': { lat: 58.5953, lng: 25.0136, count: 0, flag: '🇪🇪' },
+            'Letonia': { lat: 56.8796, lng: 24.6032, count: 0, flag: '🇱🇻' },
+            'Lituania': { lat: 55.1694, lng: 23.8813, count: 0, flag: '🇱🇹' },
+            'Eslovaquia': { lat: 48.6690, lng: 19.6990, count: 0, flag: '🇸🇰' },
+            'Eslovenia': { lat: 46.1512, lng: 14.9955, count: 0, flag: '🇸🇮' },
+            'Israel': { lat: 31.0461, lng: 34.8516, count: 0, flag: '🇮🇱' },
+            'Jordania': { lat: 30.5852, lng: 36.2384, count: 0, flag: '🇯🇴' },
+            'Líbano': { lat: 33.8547, lng: 35.8623, count: 0, flag: '🇱🇧' },
+            'Tailandia': { lat: 15.8700, lng: 100.9925, count: 0, flag: '🇹🇭' },
+            'Vietnam': { lat: 14.0583, lng: 108.2772, count: 0, flag: '🇻🇳' },
+            'Malasia': { lat: 4.2105, lng: 101.9758, count: 0, flag: '🇲🇾' },
+            'Singapur': { lat: 1.3521, lng: 103.8198, count: 0, flag: '🇸🇬' },
+            'Indonesia': { lat: -0.7893, lng: 113.9213, count: 0, flag: '🇮🇩' },
+            'Filipinas': { lat: 12.8797, lng: 121.7740, count: 0, flag: '🇵🇭' },
+            'Corea del Sur': { lat: 35.9078, lng: 127.7669, count: 0, flag: '🇰🇷' },
+            'Taiwán': { lat: 23.6978, lng: 120.9605, count: 0, flag: '🇹🇼' },
+            'Nueva Zelanda': { lat: -40.9006, lng: 174.8860, count: 0, flag: '🇳🇿' }
+        };
+
+        let map, markers = [];
+
+        // Inicializar mapa
+        function initializeMap() {
+            map = L.map('map').setView([20, 0], 2);
+            
+            // Capa base clara
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© Radio Emisión Cristiana'
+            }).addTo(map);
+
+            console.log('🗺️ Mapa inicializado');
+            console.log('🔴 Creando círculos rojos para TODOS los países...');
+
+            // Crear marcadores para TODOS los países
+            createAllCountryMarkers();
+            updateStatistics();
+        }
+
+        // Crear círculos rojos para TODOS los países
+        function createAllCountryMarkers() {
+            // Limpiar marcadores existentes
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            // Crear marcadores para TODOS los países
+            Object.entries(listenersData).forEach(([country, data]) => {
+                // Determinar tamaño y transparencia según oyentes
+                let radius, fillOpacity, weight, popupText;
+                
+                if (data.count > 0) {
+                    // Países con oyentes: círculos más grandes y opacos
+                    radius = Math.min(20, Math.max(5, Math.log(data.count) * 1.5));
+                    fillOpacity = 0.8;
+                    weight = 2;
+                    popupText = `<strong>${data.count}</strong> oyentes conectados`;
+                } else {
+                    // Países sin oyentes: círculos pequeños y semi-transparentes
+                    radius = 4;
+                    fillOpacity = 0.4;
+                    weight = 1;
+                    popupText = `<em>Sin oyentes registrados</em>`;
+                }
+                
+                const marker = L.circleMarker([data.lat, data.lng], {
+                    radius: radius,
+                    fillColor: '#ff4444',        // ROJO para todos
+                    color: '#cc0000',            // Borde rojo oscuro
+                    weight: weight,
+                    opacity: 0.9,
+                    fillOpacity: fillOpacity
+                });
+                
+                marker.bindPopup(`
+                    <div style="padding: 10px;">
+                        <h4 style="margin: 0; color: #f44336;">${data.flag} ${country}</h4>
+                        <p style="margin: 5px 0;">${popupText}</p>
+                        <small style="color: #666;">Círculo rojo ${data.count > 0 ? '(activo)' : '(inactivo)'}</small>
+                    </div>
+                `);
+                
+                marker.addTo(map);
+                markers.push(marker);
+            });
+
+            console.log(`✅ ${markers.length} círculos rojos creados para todos los países`);
+        }
+
+        // Actualizar estadísticas
+        function updateStatistics() {
+            const totalListeners = Object.values(listenersData).reduce((sum, country) => sum + country.count, 0);
+            const totalCountries = Object.keys(listenersData).length;
+            const activeCountries = Object.values(listenersData).filter(country => country.count > 0).length;
+            const inactiveCountries = totalCountries - activeCountries;
+
+            document.getElementById('total-listeners').textContent = totalListeners;
+            document.getElementById('total-countries').textContent = totalCountries;
+            document.getElementById('active-countries').textContent = activeCountries;
+            document.getElementById('inactive-countries').textContent = inactiveCountries;
+
+            console.log(`📊 ${totalCountries} países total: ${activeCountries} activos, ${inactiveCountries} inactivos`);
+        }
+
+        // Animar los círculos
+        function animateCircles() {
+            markers.forEach((marker, index) => {
+                setTimeout(() => {
+                    const currentOptions = marker.options;
+                    marker.setStyle({
+                        ...currentOptions,
+                        fillOpacity: Math.min(1, currentOptions.fillOpacity + 0.2),
+                        radius: currentOptions.radius + 1
+                    });
+                    
+                    setTimeout(() => {
+                        marker.setStyle(currentOptions);
+                    }, 400);
+                }, index * 50);
+            });
+        }
+
+        // Inicializar cuando se carga la página
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMap();
+            
+            // Animar círculos cada 8 segundos
+            setInterval(animateCircles, 8000);
+        });
+    </script>
+</body>
+</html>

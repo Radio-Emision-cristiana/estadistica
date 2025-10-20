@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba - Círculos Rojos</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .status {
+            background: #f44336;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+        .info-panel {
+            padding: 20px;
+            background: #f9f9f9;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #f44336;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #f44336;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔴 Mapa con Círculos Rojos</h1>
+            <p>Visualización simple con marcadores circulares</p>
+        </div>
+        
+        <div class="status">
+            🔴 Mostrando ubicaciones con círculos rojos
+        </div>
+        
+        <div id="map"></div>
+        
+        <div class="info-panel">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-listeners">487</div>
+                    <div class="stat-label">Oyentes Totales</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="total-countries">15</div>
+                    <div class="stat-label">Ubicaciones Activas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">CÍRCULOS</div>
+                    <div class="stat-label">Tipo de Visualización</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">ROJOS</div>
+                    <div class="stat-label">Color de Marcadores</div>
+                </div>
+            </div>
+            
+            <div style="background: #ffebee; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #f44336;">
+                <h4>🔴 Información:</h4>
+                <p><strong>Visualización:</strong> Círculos rojos simples</p>
+                <p><strong>Tamaño:</strong> Basado en número de oyentes</p>
+                <p><strong>Color:</strong> Rojo para todos los marcadores</p>
+                <p><strong>Ventajas:</strong> Carga rápida, visualización clara</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Datos de oyentes por ubicación
+        const listenersData = {
+            'México': { lat: 23.6345, lng: -102.5528, count: 145, flag: '🇲🇽' },
+            'Estados Unidos': { lat: 39.8283, lng: -98.5795, count: 89, flag: '🇺🇸' },
+            'España': { lat: 40.4637, lng: -3.7492, count: 67, flag: '🇪🇸' },
+            'Argentina': { lat: -38.4161, lng: -63.6167, count: 54, flag: '🇦🇷' },
+            'Colombia': { lat: 4.5709, lng: -74.2973, count: 43, flag: '🇨🇴' },
+            'Chile': { lat: -35.6751, lng: -71.5430, count: 32, flag: '🇨🇱' },
+            'Perú': { lat: -9.1900, lng: -75.0152, count: 28, flag: '🇵🇪' },
+            'Venezuela': { lat: 6.4238, lng: -66.5897, count: 25, flag: '🇻🇪' },
+            'Reino Unido': { lat: 55.3781, lng: -3.4360, count: 19, flag: '🇬🇧' },
+            'Canadá': { lat: 56.1304, lng: -106.3468, count: 16, flag: '🇨🇦' },
+            'Francia': { lat: 46.2276, lng: 2.2137, count: 14, flag: '🇫🇷' },
+            'Brasil': { lat: -14.2350, lng: -51.9253, count: 12, flag: '🇧🇷' },
+            'Alemania': { lat: 51.1657, lng: 10.4515, count: 11, flag: '🇩🇪' },
+            'Italia': { lat: 41.8719, lng: 12.5674, count: 8, flag: '🇮🇹' },
+            'Japón': { lat: 36.2048, lng: 138.2529, count: 6, flag: '🇯🇵' }
+        };
+
+        let map, markers = [];
+
+        // Inicializar mapa
+        function initializeMap() {
+            map = L.map('map').setView([20, 0], 2);
+            
+            // Capa base clara
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© Radio Emisión Cristiana'
+            }).addTo(map);
+
+            console.log('🗺️ Mapa inicializado');
+            console.log('🔴 Creando círculos rojos...');
+
+            // Crear marcadores rojos
+            createRedCircles();
+        }
+
+        // Crear círculos rojos
+        function createRedCircles() {
+            // Limpiar marcadores existentes
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            // Crear nuevos marcadores ROJOS
+            Object.entries(listenersData).forEach(([country, data]) => {
+                if (data.count > 0) {
+                    const marker = L.circleMarker([data.lat, data.lng], {
+                        radius: Math.min(20, Math.max(3, Math.log(data.count) * 1.5)),
+                        fillColor: '#ff4444',        // Rojo brillante
+                        color: '#cc0000',            // Borde rojo oscuro
+                        weight: 2,
+                        opacity: 0.9,
+                        fillOpacity: 0.7
+                    });
+                    
+                    marker.bindPopup(`
+                        <div style="padding: 10px;">
+                            <h4 style="margin: 0; color: #f44336;">${data.flag} ${country}</h4>
+                            <p style="margin: 5px 0;"><strong>${data.count}</strong> oyentes conectados</p>
+                            <small style="color: #666;">Marcador circular rojo</small>
+                        </div>
+                    `);
+                    
+                    marker.addTo(map);
+                    markers.push(marker);
+                }
+            });
+
+            console.log(`✅ ${markers.length} círculos rojos creados`);
+        }
+
+        // Animar los círculos
+        function animateCircles() {
+            markers.forEach((marker, index) => {
+                setTimeout(() => {
+                    const currentOptions = marker.options;
+                    marker.setStyle({
+                        ...currentOptions,
+                        fillOpacity: 0.9,
+                        radius: currentOptions.radius + 2
+                    });
+                    
+                    setTimeout(() => {
+                        marker.setStyle({
+                            ...currentOptions,
+                            fillOpacity: 0.7,
+                            radius: currentOptions.radius
+                        });
+                    }, 500);
+                }, index * 100);
+            });
+        }
+
+        // Inicializar cuando se carga la página
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMap();
+            
+            // Animar círculos cada 5 segundos
+            setInterval(animateCircles, 5000);
+        });
+    </script>
+</body>
+</html>

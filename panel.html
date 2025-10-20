@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Estadísticas - Radio Emisión Cristiana</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-broadcast-tower"></i>
+                <h1>Radio Emisión Cristiana</h1>
+            </div>
+            <div class="status">
+                <div class="live-status">
+                    <span class="live-indicator"></span>
+                    <span class="live-text">EN VIVO</span>
+                </div>
+                <div class="connection-info">
+                    <small>Conectado a Zeno.fm</small>
+                </div>
+            </div>
+        </header>
+
+        <!-- Estadísticas principales -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="total-listeners">0</h3>
+                    <p>Oyentes Conectados</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-globe"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="total-countries">0</h3>
+                    <p>Países</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="peak-today">0</h3>
+                    <p>Pico del Día</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 id="avg-session">0</h3>
+                    <p>Tiempo Promedio</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenido principal -->
+        <div class="main-content">
+            <!-- Mapa -->
+            <div class="map-container">
+                <div class="section-header">
+                    <h2><i class="fas fa-map"></i> Audiencia Mundial</h2>
+                    <div class="last-update">
+                        Última actualización: <span id="last-update"></span>
+                    </div>
+                </div>
+                <div style="background: #49b1f2; color: white; padding: 8px; text-align: center; font-size: 14px; margin-bottom: 10px; border-radius: 4px;">
+                    🔴 ESTADÍSTICA DE TODOS LOS PAÍSES
+                </div>
+                <div id="map"></div>
+            </div>
+
+            <!-- Panel lateral -->
+            <div class="sidebar">
+                <!-- Top países -->
+                <div class="countries-list">
+                    <h3><i class="fas fa-trophy"></i> Top Países</h3>
+                    <div id="countries-ranking"></div>
+                </div>
+
+                <!-- Gráfico de actividad -->
+                <div class="activity-chart">
+                    <h3><i class="fas fa-chart-area"></i> Actividad 24h</h3>
+                    <canvas id="activityChart" width="400" height="200"></canvas>
+                </div>
+
+                <!-- Información actual -->
+                <div class="current-info">
+                    <h3><i class="fas fa-music"></i> Ahora Sonando</h3>
+                    <div class="now-playing">
+                        <div class="song-info">
+                            <div class="song-title" id="song-title">Cargando...</div>
+                            <div class="artist" id="artist">Cargando...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Historial de canciones -->
+                <div class="song-history">
+                    <h3><i class="fas fa-history"></i> Canciones Anteriores</h3>
+                    <div class="history-list" id="song-history-list">
+                        <div class="history-item loading">
+                            <div class="history-time">--:--</div>
+                            <div class="history-song">
+                                <div class="history-title">Cargando historial...</div>
+                                <div class="history-artist">Preparando lista</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

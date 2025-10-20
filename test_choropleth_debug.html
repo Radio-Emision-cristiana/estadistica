@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Mapa Coroplético - Debug</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            height: 500px;
+            width: 100%;
+            border: 2px solid #333;
+        }
+        #debug {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 5px;
+        }
+        .country-label {
+            background: none !important;
+            border: none !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test de Mapa Coroplético - Debug</h1>
+    <div id="map"></div>
+    <div id="debug">
+        <h3>Estado del Debug:</h3>
+        <div id="status">Iniciando...</div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Datos simulados
+        const listenersData = {
+            'México': { lat: 23.6345, lng: -102.5528, count: 145, flag: '🇲🇽' },
+            'Estados Unidos': { lat: 39.8283, lng: -98.5795, count: 89, flag: '🇺🇸' },
+            'España': { lat: 40.4637, lng: -3.7492, count: 67, flag: '🇪🇸' },
+            'Argentina': { lat: -38.4161, lng: -63.6167, count: 54, flag: '🇦🇷' },
+            'Colombia': { lat: 4.5709, lng: -74.2973, count: 43, flag: '🇨🇴' },
+            'Chile': { lat: -35.6751, lng: -71.5430, count: 32, flag: '🇨🇱' },
+            'Perú': { lat: -9.1900, lng: -75.0152, count: 28, flag: '🇵🇪' },
+            'Venezuela': { lat: 6.4238, lng: -66.5897, count: 25, flag: '🇻🇪' },
+            'Reino Unido': { lat: 55.3781, lng: -3.4360, count: 19, flag: '🇬🇧' },
+            'Canadá': { lat: 56.1304, lng: -106.3468, count: 16, flag: '🇨🇦' },
+            'Francia': { lat: 46.2276, lng: 2.2137, count: 14, flag: '🇫🇷' },
+            'Brasil': { lat: -14.2350, lng: -51.9253, count: 12, flag: '🇧🇷' },
+            'Alemania': { lat: 51.1657, lng: 10.4515, count: 11, flag: '🇩🇪' },
+            'Italia': { lat: 41.8719, lng: 12.5674, count: 8, flag: '🇮🇹' },
+            'Japón': { lat: 36.2048, lng: 138.2529, count: 6, flag: '🇯🇵' }
+        };
+
+        let map;
+        let choroplethLayer = null;
+        let countriesGeoJSON = null;
+        let countryLabels = [];
+
+        function log(message) {
+            console.log(message);
+            document.getElementById('status').innerHTML += '<br>' + message;
+        }
+
+        // Obtener color según el número de oyentes (escala azul)
+        function getColorByCount(count) {
+            if (count === 0) return '#f0f0f0';     // Gris claro para países sin oyentes
+            if (count < 5) return '#e1f5fe';       // Azul muy claro
+            if (count < 15) return '#b3e5fc';      // Azul claro
+            if (count < 30) return '#81d4fa';      // Azul medio claro
+            if (count < 50) return '#4fc3f7';      // Azul medio
+            if (count < 75) return '#29b6f6';      // Azul medio oscuro
+            if (count < 100) return '#039be5';     // Azul oscuro
+            return '#0277bd';                      // Azul muy oscuro para 100+
+        }
+
+        // Obtener número de oyentes para un país específico
+        function getListenerCountForCountry(countryName) {
+            const countryMapping = {
+                'United States of America': 'Estados Unidos',
+                'United States': 'Estados Unidos',
+                'Mexico': 'México',
+                'Spain': 'España',
+                'Argentina': 'Argentina',
+                'Colombia': 'Colombia',
+                'Chile': 'Chile',
+                'Peru': 'Perú',
+                'Venezuela': 'Venezuela',
+                'United Kingdom': 'Reino Unido',
+                'Canada': 'Canadá',
+                'France': 'Francia',
+                'Brazil': 'Brasil',
+                'Germany': 'Alemania',
+                'Italy': 'Italia',
+                'Japan': 'Japón'
+            };
+            
+            const mappedName = countryMapping[countryName];
+            if (mappedName && listenersData[mappedName]) {
+                return listenersData[mappedName].count;
+            }
+            
+            if (listenersData[countryName]) {
+                return listenersData[countryName].count;
+            }
+            
+            return 0;
+        }
+
+        // Obtener datos completos de un país por nombre
+        function getCountryDataByName(countryName) {
+            const countryMapping = {
+                'United States of America': 'Estados Unidos',
+                'United States': 'Estados Unidos',
+                'Mexico': 'México',
+                'Spain': 'España',
+                'Argentina': 'Argentina',
+                'Colombia': 'Colombia',
+                'Chile': 'Chile',
+                'Peru': 'Perú',
+                'Venezuela': 'Venezuela',
+                'United Kingdom': 'Reino Unido',
+                'Canada': 'Canadá',
+                'France': 'Francia',
+                'Brazil': 'Brasil',
+                'Germany': 'Alemania',
+                'Italy': 'Italia',
+                'Japan': 'Japón'
+            };
+            
+            const mappedName = countryMapping[countryName];
+            if (mappedName && listenersData[mappedName]) {
+                return listenersData[mappedName];
+            }
+            
+            if (listenersData[countryName]) {
+                return listenersData[countryName];
+            }
+            
+            return null;
+        }
+
+        // Obtener estilo para un país
+        function getCountryStyle(feature) {
+            const countryName = feature.properties.name;
+            const listenerCount = getListenerCountForCountry(countryName);
+            
+            return {
+                fillColor: getColorByCount(listenerCount),
+                weight: 1,
+                opacity: 0.7,
+                color: '#333',
+                fillOpacity: 0.8
+            };
+        }
+
+        // Limpiar etiquetas de países
+        function clearCountryLabels() {
+            countryLabels.forEach(label => {
+                if (map.hasLayer(label)) {
+                    map.removeLayer(label);
+                }
+            });
+            countryLabels = [];
+        }
+
+        // Crear capa de coropletas
+        function createChoroplethLayer() {
+            if (!countriesGeoJSON) {
+                log('❌ No hay datos GeoJSON disponibles');
+                return;
+            }
+            
+            log('🗺️ Creando capa de coropletas...');
+            
+            // Eliminar capa anterior si existe
+            if (choroplethLayer) {
+                map.removeLayer(choroplethLayer);
+            }
+
+            // Limpiar etiquetas anteriores
+            clearCountryLabels();
+            
+            choroplethLayer = L.geoJSON(countriesGeoJSON, {
+                style: function(feature) {
+                    return getCountryStyle(feature);
+                },
+                onEachFeature: function(feature, layer) {
+                    const countryName = feature.properties.name;
+                    const listenerCount = getListenerCountForCountry(countryName);
+                    const countryData = getCountryDataByName(countryName);
+                    
+                    // Solo agregar etiqueta si hay oyentes
+                    if (listenerCount > 0) {
+                        log(`✅ País con oyentes: ${countryName} (${listenerCount})`);
+                        
+                        // Obtener el centro del país para colocar la etiqueta
+                        const bounds = layer.getBounds();
+                        const center = bounds.getCenter();
+                        
+                        // Crear marcador de texto para mostrar el número
+                        const textMarker = L.marker(center, {
+                            icon: L.divIcon({
+                                className: 'country-label',
+                                html: `<div style="
+                                    background: rgba(255, 255, 255, 0.9);
+                                    border: 1px solid #333;
+                                    border-radius: 4px;
+                                    padding: 2px 6px;
+                                    font-size: 12px;
+                                    font-weight: bold;
+                                    color: #333;
+                                    text-align: center;
+                                    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                                ">${listenerCount}</div>`,
+                                iconSize: [30, 20],
+                                iconAnchor: [15, 10]
+                            })
+                        });
+                        
+                        textMarker.addTo(map);
+                        countryLabels.push(textMarker);
+                    }
+                    
+                    // Popup con información detallada
+                    layer.bindPopup(`
+                        <div class="custom-popup">
+                            <h4>${countryData ? countryData.flag : '🌍'} ${countryName}</h4>
+                            <p><strong>${listenerCount}</strong> oyentes conectados</p>
+                        </div>
+                    `);
+                }
+            }).addTo(map);
+            
+            log(`✅ Capa de coropletas creada con ${countriesGeoJSON.features.length} países`);
+        }
+
+        // Cargar datos GeoJSON de países
+        async function loadCountriesGeoJSON() {
+            try {
+                log('📡 Iniciando carga de datos GeoJSON...');
+                
+                const possiblePaths = [
+                    './countries.geojson',
+                    '/countries.geojson',
+                    'countries.geojson'
+                ];
+                
+                let loaded = false;
+                
+                for (const path of possiblePaths) {
+                    try {
+                        log(`🔍 Intentando cargar desde: ${path}`);
+                        const response = await fetch(path);
+                        
+                        log(`📊 Respuesta: ${response.status} ${response.statusText}`);
+                        
+                        if (response.ok) {
+                            countriesGeoJSON = await response.json();
+                            log(`✅ Datos GeoJSON cargados correctamente: ${countriesGeoJSON.features.length} países`);
+                            loaded = true;
+                            break;
+                        }
+                    } catch (e) {
+                        log(`❌ Falló la carga desde ${path}: ${e.message}`);
+                    }
+                }
+                
+                if (loaded) {
+                    createChoroplethLayer();
+                } else {
+                    throw new Error('No se pudo cargar el archivo GeoJSON desde ninguna ruta');
+                }
+                
+            } catch (error) {
+                log(`❌ Error total al cargar GeoJSON: ${error.message}`);
+                log('🔄 Usando círculos como respaldo...');
+                
+                // Fallback: usar círculos
+                Object.entries(listenersData).forEach(([country, data]) => {
+                    if (data.count > 0) {
+                        const marker = L.circleMarker([data.lat, data.lng], {
+                            radius: Math.min(20, Math.max(3, Math.log(data.count) * 1.5)),
+                            fillColor: getColorByCount(data.count),
+                            color: '#fff',
+                            weight: 1,
+                            opacity: 0.9,
+                            fillOpacity: 0.7
+                        });
+                        
+                        marker.bindPopup(`
+                            <div class="custom-popup">
+                                <h4>${data.flag} ${country}</h4>
+                                <p><strong>${data.count}</strong> oyentes conectados</p>
+                            </div>
+                        `);
+                        
+                        marker.addTo(map);
+                    }
+                });
+            }
+        }
+
+        // Inicializar mapa
+        function initializeMap() {
+            log('🗺️ Inicializando mapa...');
+            
+            map = L.map('map').setView([20, 0], 2);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            log('✅ Mapa base cargado');
+            
+            // Cargar datos GeoJSON
+            loadCountriesGeoJSON();
+        }
+
+        // Inicializar cuando se carga la página
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMap();
+        });
+    </script>
+</body>
+</html>

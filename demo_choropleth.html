@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo Mapa de Coropletas - Radio Emisión Cristiana</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { 
+            margin: 0; 
+            padding: 20px; 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #0277bd 0%, #01579b 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        .info-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .info-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .info-card h3 {
+            margin: 0 0 10px 0;
+            color: #0277bd;
+            font-size: 1.2em;
+        }
+        .status {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .status.loading { 
+            background: #fff3cd; 
+            border: 2px solid #ffc107; 
+            color: #856404;
+        }
+        .status.success { 
+            background: #d4edda; 
+            border: 2px solid #28a745; 
+            color: #155724;
+        }
+        .status.error { 
+            background: #f8d7da; 
+            border: 2px solid #dc3545; 
+            color: #721c24;
+        }
+        #map { 
+            height: 600px; 
+            width: 100%; 
+        }
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            min-width: 200px;
+        }
+        .legend h4 {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            color: #0277bd;
+            text-align: center;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+        .legend-color {
+            width: 25px;
+            height: 18px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .legend-text {
+            font-size: 13px;
+            color: #333;
+        }
+        .demo-note {
+            background: #e3f2fd;
+            border-left: 4px solid #0277bd;
+            padding: 15px;
+            margin: 20px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗺️ Mapa de Coropletas</h1>
+            <p>Visualización de Oyentes por País - Radio Emisión Cristiana</p>
+        </div>
+        
+        <div class="info-panel">
+            <div class="info-card">
+                <h3>📊 Datos de Streaming</h3>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>🇲🇽 México:</strong> 145 oyentes</li>
+                    <li><strong>🇺🇸 Estados Unidos:</strong> 89 oyentes</li>
+                    <li><strong>🇪🇸 España:</strong> 67 oyentes</li>
+                    <li><strong>🇦🇷 Argentina:</strong> 54 oyentes</li>
+                    <li><strong>🇨🇴 Colombia:</strong> 43 oyentes</li>
+                </ul>
+            </div>
+            <div class="info-card">
+                <h3>🎯 Características</h3>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li>✅ Países coloreados según oyentes</li>
+                    <li>🔢 Números mostrados en cada país</li>
+                    <li>🎨 Escala de colores azules</li>
+                    <li>📱 Popups informativos</li>
+                    <li>🖱️ Efectos hover interactivos</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="demo-note">
+            <strong>🚀 Demo:</strong> Este mapa muestra la nueva visualización estilo coropletas donde los países se colorean según el número de oyentes. Los países con más oyentes aparecen en azul más intenso y muestran el número de oyentes conectados.
+        </div>
+        
+        <div id="status" class="status loading">⏳ Inicializando mapa de coropletas...</div>
+        
+        <div style="position: relative;">
+            <div id="map"></div>
+            <div class="legend">
+                <h4>🎨 Oyentes por País</h4>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f0f0f0;"></div>
+                    <span class="legend-text">0 oyentes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #e1f5fe;"></div>
+                    <span class="legend-text">1-4 oyentes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #81d4fa;"></div>
+                    <span class="legend-text">15-29 oyentes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #29b6f6;"></div>
+                    <span class="legend-text">50-74 oyentes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #0277bd;"></div>
+                    <span class="legend-text">100+ oyentes</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Variables globales
+        let map;
+        let markers = [];
+        
+        // Datos de oyentes (simulando datos reales)
+        const listenersData = {
+            'México': { count: 145, flag: '🇲🇽' },
+            'Estados Unidos': { count: 89, flag: '🇺🇸' },
+            'España': { count: 67, flag: '🇪🇸' },
+            'Argentina': { count: 54, flag: '🇦🇷' },
+            'Colombia': { count: 43, flag: '🇨🇴' },
+            'Chile': { count: 32, flag: '🇨🇱' },
+            'Perú': { count: 28, flag: '🇵🇪' },
+            'Venezuela': { count: 25, flag: '🇻🇪' },
+            'Reino Unido': { count: 19, flag: '🇬🇧' },
+            'Canadá': { count: 16, flag: '🇨🇦' }
+        };
+        
+        function updateStatus(message, type = 'loading') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+        
+        // Obtener color según el número de oyentes (escala azul)
+        function getColorByCount(count) {
+            if (count === 0) return '#f0f0f0';
+            if (count < 5) return '#e1f5fe';
+            if (count < 15) return '#b3e5fc';
+            if (count < 30) return '#81d4fa';
+            if (count < 50) return '#4fc3f7';
+            if (count < 75) return '#29b6f6';
+            if (count < 100) return '#03a9f4';
+            if (count < 150) return '#0288d1';
+            return '#0277bd';
+        }
+        
+        // Crear mapa estilo coropletas con marcadores mejorados
+        function createChoroplethStyleMap() {
+            updateStatus('🗺️ Creando visualización estilo coropletas...', 'loading');
+            
+            const countryCoordinates = [
+                { name: 'México', coords: [23.6345, -102.5528], data: 'México' },
+                { name: 'Estados Unidos', coords: [39.8283, -98.5795], data: 'Estados Unidos' },
+                { name: 'España', coords: [40.4637, -3.7492], data: 'España' },
+                { name: 'Argentina', coords: [-38.4161, -63.6167], data: 'Argentina' },
+                { name: 'Colombia', coords: [4.5709, -74.2973], data: 'Colombia' },
+                { name: 'Chile', coords: [-35.6751, -71.5430], data: 'Chile' },
+                { name: 'Perú', coords: [-9.1900, -75.0152], data: 'Perú' },
+                { name: 'Venezuela', coords: [6.4238, -66.5897], data: 'Venezuela' },
+                { name: 'Reino Unido', coords: [55.3781, -3.4360], data: 'Reino Unido' },
+                { name: 'Canadá', coords: [56.1304, -106.3468], data: 'Canadá' }
+            ];
+            
+            let countriesProcessed = 0;
+            
+            countryCoordinates.forEach(country => {
+                const listenerCount = listenersData[country.data] ? listenersData[country.data].count : 0;
+                
+                if (listenerCount > 0) {
+                    // Crear marcador estilo área (grande y colorido)
+                    const countryMarker = L.circleMarker(country.coords, {
+                        radius: Math.min(60, Math.max(25, Math.log(listenerCount) * 10)),
+                        fillColor: getColorByCount(listenerCount),
+                        color: '#ffffff',
+                        weight: 3,
+                        opacity: 0.9,
+                        fillOpacity: 0.8
+                    });
+                    
+                    // Agregar etiqueta con el número
+                    const labelMarker = L.marker(country.coords, {
+                        icon: L.divIcon({
+                            className: 'country-label',
+                            html: `<div style="
+                                background: rgba(255, 255, 255, 0.95);
+                                border: 2px solid #0277bd;
+                                border-radius: 6px;
+                                padding: 6px 12px;
+                                font-size: 16px;
+                                font-weight: bold;
+                                color: #0277bd;
+                                text-align: center;
+                                box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+                                min-width: 30px;
+                            ">${listenerCount}</div>`,
+                            iconSize: [50, 30],
+                            iconAnchor: [25, 15]
+                        })
+                    });
+                    
+                    // Popup con información detallada
+                    const countryData = listenersData[country.data];
+                    const popupContent = `
+                        <div style="text-align: center; min-width: 200px;">
+                            <h3 style="margin: 0 0 10px 0; color: #0277bd;">
+                                ${countryData.flag} ${country.name}
+                            </h3>
+                            <div style="font-size: 24px; font-weight: bold; color: #0277bd; margin: 10px 0;">
+                                ${listenerCount} oyentes
+                            </div>
+                            <div style="background: #e3f2fd; padding: 8px; border-radius: 4px; margin: 10px 0;">
+                                <small style="color: #01579b;">✅ País activo en streaming</small>
+                            </div>
+                            <div style="font-size: 12px; color: #666; margin-top: 8px;">
+                                Radio Emisión Cristiana
+                            </div>
+                        </div>
+                    `;
+                    
+                    countryMarker.bindPopup(popupContent);
+                    labelMarker.bindPopup(popupContent);
+                    
+                    // Efectos hover mejorados
+                    countryMarker.on({
+                        mouseover: function(e) {
+                            e.target.setStyle({
+                                radius: e.target.options.radius * 1.2,
+                                weight: 4,
+                                color: '#0277bd',
+                                fillOpacity: 0.9
+                            });
+                        },
+                        mouseout: function(e) {
+                            e.target.setStyle({
+                                radius: e.target.options.radius / 1.2,
+                                weight: 3,
+                                color: '#ffffff',
+                                fillOpacity: 0.8
+                            });
+                        }
+                    });
+                    
+                    countryMarker.addTo(map);
+                    labelMarker.addTo(map);
+                    
+                    markers.push(countryMarker);
+                    markers.push(labelMarker);
+                    
+                    countriesProcessed++;
+                }
+            });
+            
+            updateStatus(`✅ ¡Mapa de coropletas creado! ${countriesProcessed} países con oyentes mostrados.`, 'success');
+        }
+        
+        // Inicializar mapa
+        function initializeMap() {
+            updateStatus('🌍 Inicializando mapa base...', 'loading');
+            
+            map = L.map('map').setView([20, 0], 2);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© Radio Emisión Cristiana | Demo Choropleth',
+                maxZoom: 19
+            }).addTo(map);
+            
+            // Crear visualización después de un breve delay
+            setTimeout(() => {
+                createChoroplethStyleMap();
+            }, 1000);
+        }
+        
+        // Inicializar cuando se carga la página
+        document.addEventListener('DOMContentLoaded', initializeMap);
+    </script>
+</body>
+</html>

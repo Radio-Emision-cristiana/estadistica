@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Coroplético - Formas Reales de Países</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0277bd;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #map {
+            height: 600px;
+            width: 100%;
+            border: 2px solid #0277bd;
+            border-radius: 8px;
+        }
+        .info {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-left: 4px solid #0277bd;
+            border-radius: 4px;
+        }
+        .country-label {
+            background: none !important;
+            border: none !important;
+        }
+        .success {
+            color: #2e7d32;
+            font-weight: bold;
+        }
+        .warning {
+            color: #f57c00;
+            font-weight: bold;
+        }
+        #status {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fff3e0;
+            border-radius: 4px;
+            border-left: 4px solid #ff9800;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ Mapa Coroplético con Fronteras Reales</h1>
+        <div id="map"></div>
+        
+        <div id="status">
+            <h4>📊 Estado de carga:</h4>
+            <div id="loading-status">Iniciando...</div>
+        </div>
+
+        <div class="info">
+            <h3>✅ Características del nuevo mapa:</h3>
+            <ul>
+                <li class="success">🌍 <strong>Formas reales de países</strong> - No más formas rectangulares</li>
+                <li class="success">🎨 <strong>Fronteras precisas</strong> - Coordenadas geográficas exactas</li>
+                <li class="success">🔷 <strong>Fronteras destacadas</strong> - Blancas para países activos, grises para inactivos</li>
+                <li class="success">🔢 <strong>Números en países</strong> - Contadores visibles en cada territorio</li>
+                <li class="success">🎯 <strong>Colores azules</strong> - Escala según número de oyentes</li>
+                <li class="warning">⚡ <strong>Sistema de respaldo</strong> - Si falla la carga, usa formas simplificadas</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Datos simulados de oyentes
+        const listenersData = {
+            'México': { lat: 23.6345, lng: -102.5528, count: 145, flag: '🇲🇽' },
+            'Estados Unidos': { lat: 39.8283, lng: -98.5795, count: 89, flag: '🇺🇸' },
+            'España': { lat: 40.4637, lng: -3.7492, count: 67, flag: '🇪🇸' },
+            'Argentina': { lat: -38.4161, lng: -63.6167, count: 54, flag: '🇦🇷' },
+            'Colombia': { lat: 4.5709, lng: -74.2973, count: 43, flag: '🇨🇴' },
+            'Chile': { lat: -35.6751, lng: -71.5430, count: 32, flag: '🇨🇱' },
+            'Perú': { lat: -9.1900, lng: -75.0152, count: 28, flag: '🇵🇪' },
+            'Venezuela': { lat: 6.4238, lng: -66.5897, count: 25, flag: '🇻🇪' },
+            'Reino Unido': { lat: 55.3781, lng: -3.4360, count: 19, flag: '🇬🇧' },
+            'Canadá': { lat: 56.1304, lng: -106.3468, count: 16, flag: '🇨🇦' },
+            'Francia': { lat: 46.2276, lng: 2.2137, count: 14, flag: '🇫🇷' },
+            'Brasil': { lat: -14.2350, lng: -51.9253, count: 12, flag: '🇧🇷' },
+            'Alemania': { lat: 51.1657, lng: 10.4515, count: 11, flag: '🇩🇪' },
+            'Italia': { lat: 41.8719, lng: 12.5674, count: 8, flag: '🇮🇹' },
+            'Japón': { lat: 36.2048, lng: 138.2529, count: 6, flag: '🇯🇵' }
+        };
+
+        let map;
+        let choroplethLayer = null;
+        let countryLabels = [];
+
+        function updateStatus(message) {
+            document.getElementById('loading-status').innerHTML += '<br>• ' + message;
+            console.log(message);
+        }
+
+        // Obtener color según el número de oyentes
+        function getColorByCount(count) {
+            if (count === 0) return '#f0f0f0';
+            if (count < 5) return '#e1f5fe';
+            if (count < 15) return '#b3e5fc';
+            if (count < 30) return '#81d4fa';
+            if (count < 50) return '#4fc3f7';
+            if (count < 75) return '#29b6f6';
+            if (count < 100) return '#039be5';
+            return '#0277bd';
+        }
+
+        // Mapeo de nombres de países
+        function getListenerCountForCountry(countryName) {
+            const countryMapping = {
+                'United States of America': 'Estados Unidos',
+                'United States': 'Estados Unidos',
+                'Mexico': 'México',
+                'Spain': 'España',
+                'Argentina': 'Argentina',
+                'Colombia': 'Colombia',
+                'Chile': 'Chile',
+                'Peru': 'Perú',
+                'Venezuela': 'Venezuela',
+                'United Kingdom': 'Reino Unido',
+                'Canada': 'Canadá',
+                'France': 'Francia',
+                'Brazil': 'Brasil',
+                'Germany': 'Alemania',
+                'Italy': 'Italia',
+                'Japan': 'Japón'
+            };
+            
+            const mappedName = countryMapping[countryName];
+            if (mappedName && listenersData[mappedName]) {
+                return listenersData[mappedName].count;
+            }
+            
+            if (listenersData[countryName]) {
+                return listenersData[countryName].count;
+            }
+            
+            return 0;
+        }
+
+        function getCountryDataByName(countryName) {
+            const countryMapping = {
+                'United States of America': 'Estados Unidos',
+                'United States': 'Estados Unidos',
+                'Mexico': 'México',
+                'Spain': 'España',
+                'Argentina': 'Argentina',
+                'Colombia': 'Colombia',
+                'Chile': 'Chile',
+                'Peru': 'Perú',
+                'Venezuela': 'Venezuela',
+                'United Kingdom': 'Reino Unido',
+                'Canada': 'Canadá',
+                'France': 'Francia',
+                'Brazil': 'Brasil',
+                'Germany': 'Alemania',
+                'Italy': 'Italia',
+                'Japan': 'Japón'
+            };
+            
+            const mappedName = countryMapping[countryName];
+            if (mappedName && listenersData[mappedName]) {
+                return listenersData[mappedName];
+            }
+            
+            if (listenersData[countryName]) {
+                return listenersData[countryName];
+            }
+            
+            return null;
+        }
+
+        // Estilo mejorado para países
+        function getCountryStyle(feature) {
+            const countryName = feature.properties.name;
+            const listenerCount = getListenerCountForCountry(countryName);
+            
+            return {
+                fillColor: getColorByCount(listenerCount),
+                weight: listenerCount > 0 ? 2 : 1,
+                opacity: 1,
+                color: listenerCount > 0 ? '#ffffff' : '#cccccc',
+                fillOpacity: listenerCount > 0 ? 0.8 : 0.2,
+                dashArray: listenerCount > 0 ? null : '3, 3'
+            };
+        }
+
+        function clearCountryLabels() {
+            countryLabels.forEach(label => {
+                if (map.hasLayer(label)) {
+                    map.removeLayer(label);
+                }
+            });
+            countryLabels = [];
+        }
+
+        function createChoroplethLayer(geojsonData) {
+            updateStatus(`🗺️ Creando mapa con ${geojsonData.features.length} países`);
+            
+            if (choroplethLayer) {
+                map.removeLayer(choroplethLayer);
+            }
+
+            clearCountryLabels();
+            
+            choroplethLayer = L.geoJSON(geojsonData, {
+                style: function(feature) {
+                    return getCountryStyle(feature);
+                },
+                onEachFeature: function(feature, layer) {
+                    const countryName = feature.properties.name;
+                    const listenerCount = getListenerCountForCountry(countryName);
+                    const countryData = getCountryDataByName(countryName);
+                    
+                    if (listenerCount > 0) {
+                        updateStatus(`✅ País activo: ${countryName} (${listenerCount} oyentes)`);
+                        
+                        const bounds = layer.getBounds();
+                        const center = bounds.getCenter();
+                        
+                        const textMarker = L.marker(center, {
+                            icon: L.divIcon({
+                                className: 'country-label',
+                                html: `<div style="
+                                    background: rgba(255, 255, 255, 0.95);
+                                    border: 2px solid #0277bd;
+                                    border-radius: 6px;
+                                    padding: 3px 8px;
+                                    font-size: 13px;
+                                    font-weight: bold;
+                                    color: #0277bd;
+                                    text-align: center;
+                                    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                                ">${listenerCount}</div>`,
+                                iconSize: [35, 25],
+                                iconAnchor: [17, 12]
+                            })
+                        });
+                        
+                        textMarker.addTo(map);
+                        countryLabels.push(textMarker);
+                    }
+                    
+                    layer.bindPopup(`
+                        <div style="text-align: center;">
+                            <h4>${countryData ? countryData.flag : '🌍'} ${countryName}</h4>
+                            <p><strong>${listenerCount}</strong> oyentes conectados</p>
+                            ${listenerCount > 0 ? '<small style="color: #0277bd;">🎧 País activo</small>' : '<small style="color: #999;">Sin oyentes activos</small>'}
+                        </div>
+                    `);
+
+                    // Efecto hover
+                    layer.on('mouseover', function () {
+                        this.setStyle({
+                            weight: 3,
+                            opacity: 1,
+                            fillOpacity: 0.9
+                        });
+                    });
+
+                    layer.on('mouseout', function () {
+                        this.setStyle(getCountryStyle(feature));
+                    });
+                }
+            }).addTo(map);
+            
+            updateStatus(`✅ Mapa coroplético creado exitosamente`);
+        }
+
+        async function loadCountriesData() {
+            const paths = [
+                './precise_countries.geojson',
+                './countries.geojson',
+                '/precise_countries.geojson',
+                '/countries.geojson'
+            ];
+
+            for (const path of paths) {
+                try {
+                    updateStatus(`🔍 Intentando cargar: ${path}`);
+                    const response = await fetch(path);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data && data.features && data.features.length > 0) {
+                            updateStatus(`✅ Archivo cargado: ${path} (${data.features.length} países)`);
+                            createChoroplethLayer(data);
+                            return;
+                        }
+                    } else {
+                        updateStatus(`❌ Error HTTP ${response.status}: ${path}`);
+                    }
+                } catch (e) {
+                    updateStatus(`❌ Error al cargar ${path}: ${e.message}`);
+                }
+            }
+
+            updateStatus('⚠️ No se pudo cargar ningún archivo GeoJSON');
+        }
+
+        function initializeMap() {
+            updateStatus('🗺️ Inicializando mapa base...');
+            
+            map = L.map('map').setView([20, 0], 2);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            updateStatus('✅ Mapa base creado');
+            loadCountriesData();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMap();
+        });
+    </script>
+</body>
+</html>

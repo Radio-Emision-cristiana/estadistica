@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test República Dominicana - Radio Panel</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="radio-header">
+            <h1>🎵 Radio Bendición 104.9 FM</h1>
+            <div class="status-indicator">
+                🔴 Test: República Dominicana incluida con estadísticas
+            </div>
+        </header>
+
+        <div class="content-grid">
+            <!-- Panel Principal -->
+            <div class="main-panel">
+                <div class="song-info">
+                    <div class="song-card">
+                        <h2 id="songTitle">Conectando...</h2>
+                        <p id="songArtist">Cargando información...</p>
+                    </div>
+                </div>
+
+                <div class="audio-controls">
+                    <button id="playButton" class="play-button">
+                        ▶️ Reproducir en Vivo
+                    </button>
+                    <audio id="radioPlayer" preload="none">
+                        <source src="https://stream.zeno.fm/yg7bvksbfwzuv" type="audio/mpeg">
+                        Tu navegador no soporta audio HTML5.
+                    </audio>
+                </div>
+            </div>
+
+            <!-- Panel de Estadísticas -->
+            <div class="stats-panel">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Oyentes Ahora</h3>
+                        <div class="stat-number" id="currentListeners">0</div>
+                        <div class="stat-change" id="listenersChange">--</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Pico del Día</h3>
+                        <div class="stat-number" id="peakToday">0</div>
+                    </div>
+                </div>
+
+                <div class="activity-chart">
+                    <h3>Actividad (últimas 2 horas)</h3>
+                    <canvas id="activityChart" width="300" height="120"></canvas>
+                </div>
+            </div>
+
+            <!-- Mapa Mundial -->
+            <div class="map-panel">
+                <h3>Oyentes por País 🌍</h3>
+                <div id="map"></div>
+                <div class="map-legend">
+                    <div class="legend-item">
+                        <span class="legend-color active"></span>
+                        <span>Con oyentes (República Dominicana: 15)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color inactive"></span>
+                        <span>Sin oyentes actuales</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script.js"></script>
+    <script>
+        // Verificación específica para República Dominicana
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🇩🇴 Verificando República Dominicana en la lista de países...');
+            
+            // Buscar República Dominicana en los datos
+            const republicaDominicana = listenersData['República Dominicana'];
+            if (republicaDominicana) {
+                console.log('✅ República Dominicana encontrada:', republicaDominicana);
+                console.log(`   - Coordenadas: ${republicaDominicana.lat}, ${republicaDominicana.lng}`);
+                console.log(`   - Oyentes: ${republicaDominicana.count}`);
+                console.log(`   - Bandera: ${republicaDominicana.flag}`);
+            } else {
+                console.log('❌ República Dominicana NO encontrada en la lista');
+            }
+            
+            // Inicializar la aplicación
+            initializeApp();
+        });
+    </script>
+</body>
+</html>

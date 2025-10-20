@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Final - Mapa de Coropletas</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { 
+            margin: 0; 
+            padding: 20px; 
+            font-family: Arial, sans-serif; 
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: #0277bd;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .info {
+            padding: 20px;
+            background: #e3f2fd;
+            border-bottom: 1px solid #ddd;
+        }
+        #map { 
+            height: 600px; 
+            width: 100%; 
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.loading { background: #fff3cd; border: 1px solid #ffeaa7; }
+        .status.success { background: #d4edda; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; border: 1px solid #f5c6cb; }
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+        .legend h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .legend-color {
+            width: 20px;
+            height: 15px;
+            margin-right: 8px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗺️ Test Final - Mapa de Coropletas</h1>
+            <p>Verificación del sistema de mapas con países coloreados</p>
+        </div>
+        
+        <div class="info">
+            <div id="status" class="status loading">⏳ Inicializando...</div>
+            <p><strong>Datos de prueba:</strong> México (145), Estados Unidos (89), España (67), Argentina (54), Colombia (43)</p>
+            <p><strong>Esperado:</strong> Países coloreados en azul con números de oyentes mostrados</p>
+        </div>
+        
+        <div style="position: relative;">
+            <div id="map"></div>
+            <div class="legend">
+                <h4>Oyentes por País</h4>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f0f0f0;"></div>
+                    <span>0 oyentes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #e1f5fe;"></div>
+                    <span>1-4 oyentes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #81d4fa;"></div>
+                    <span>15-29 oyentes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #29b6f6;"></div>
+                    <span>50-74 oyentes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #0277bd;"></div>
+                    <span>100+ oyentes</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Variables globales
+        let map;
+        let choroplethLayer = null;
+        let countriesGeoJSON = null;
+        
+        // Datos de prueba (simulando los datos reales)
+        const listenersData = {
+            'México': { count: 145, flag: '🇲🇽' },
+            'Estados Unidos': { count: 89, flag: '🇺🇸' },
+            'España': { count: 67, flag: '🇪🇸' },
+            'Argentina': { count: 54, flag: '🇦🇷' },
+            'Colombia': { count: 43, flag: '🇨🇴' },
+            'Chile': { count: 32, flag: '🇨🇱' },
+            'Perú': { count: 28, flag: '🇵🇪' },
+            'Venezuela': { count: 25, flag: '🇻🇪' },
+            'Reino Unido': { count: 19, flag: '🇬🇧' },
+            'Canadá': { count: 16, flag: '🇨🇦' }
+        };
+        
+        function updateStatus(message, type = 'loading') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+        
+        // Obtener color según el número de oyentes (escala azul)
+        function getColorByCount(count) {
+            if (count === 0) return '#f0f0f0';
+            if (count < 5) return '#e1f5fe';
+            if (count < 15) return '#b3e5fc';
+            if (count < 30) return '#81d4fa';
+            if (count < 50) return '#4fc3f7';
+            if (count < 75) return '#29b6f6';
+            if (count < 100) return '#03a9f4';
+            if (count < 150) return '#0288d1';
+            return '#0277bd';
+        }
+        
+        // Obtener número de oyentes para un país específico
+        function getListenerCountForCountry(countryName) {
+            const countryMapping = {
+                'United States of America': 'Estados Unidos',
+                'United States': 'Estados Unidos',
+                'Mexico': 'México',
+                'Spain': 'España',
+                'Argentina': 'Argentina',
+                'Colombia': 'Colombia',
+                'Chile': 'Chile',
+                'Peru': 'Perú',
+                'Venezuela': 'Venezuela',
+                'United Kingdom': 'Reino Unido',
+                'Canada': 'Canadá'
+            };
+            
+            const mappedName = countryMapping[countryName];
+            if (mappedName && listenersData[mappedName]) {
+                return listenersData[mappedName].count;
+            }
+            
+            if (listenersData[countryName]) {
+                return listenersData[countryName].count;
+            }
+            
+            return 0;
+        }
+        
+        // Obtener datos completos de un país por nombre
+        function getCountryDataByName(countryName) {
+            const countryMapping = {
+                'United States of America': 'Estados Unidos',
+                'United States': 'Estados Unidos',
+                'Mexico': 'México',
+                'Spain': 'España',
+                'Argentina': 'Argentina',
+                'Colombia': 'Colombia',
+                'Chile': 'Chile',
+                'Peru': 'Perú',
+                'Venezuela': 'Venezuela',
+                'United Kingdom': 'Reino Unido',
+                'Canada': 'Canadá'
+            };
+            
+            const mappedName = countryMapping[countryName];
+            if (mappedName && listenersData[mappedName]) {
+                return listenersData[mappedName];
+            }
+            
+            if (listenersData[countryName]) {
+                return listenersData[countryName];
+            }
+            
+            return null;
+        }
+        
+        // Obtener estilo para un país
+        function getCountryStyle(feature) {
+            const countryName = feature.properties.name;
+            const listenerCount = getListenerCountForCountry(countryName);
+            
+            return {
+                fillColor: getColorByCount(listenerCount),
+                weight: 1,
+                opacity: 0.7,
+                color: '#ffffff',
+                fillOpacity: listenerCount > 0 ? 0.8 : 0.3
+            };
+        }
+        
+        // Crear capa de coropletas
+        function createChoroplethLayer() {
+            if (!countriesGeoJSON) {
+                updateStatus('❌ No hay datos GeoJSON disponibles', 'error');
+                return;
+            }
+            
+            updateStatus('🗺️ Creando mapa de coropletas...', 'loading');
+            
+            choroplethLayer = L.geoJSON(countriesGeoJSON, {
+                style: getCountryStyle,
+                onEachFeature: function(feature, layer) {
+                    const countryName = feature.properties.name;
+                    const listenerCount = getListenerCountForCountry(countryName);
+                    const countryData = getCountryDataByName(countryName);
+                    
+                    // Agregar etiqueta con número si hay oyentes
+                    if (listenerCount > 0) {
+                        const bounds = layer.getBounds();
+                        const center = bounds.getCenter();
+                        
+                        const textMarker = L.marker(center, {
+                            icon: L.divIcon({
+                                className: 'country-label',
+                                html: `<div style="
+                                    background: rgba(255, 255, 255, 0.9);
+                                    border: 1px solid #333;
+                                    border-radius: 4px;
+                                    padding: 2px 6px;
+                                    font-size: 12px;
+                                    font-weight: bold;
+                                    color: #333;
+                                    text-align: center;
+                                    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                                ">${listenerCount}</div>`,
+                                iconSize: [30, 20],
+                                iconAnchor: [15, 10]
+                            })
+                        }).addTo(map);
+                    }
+                    
+                    // Popup con información
+                    layer.bindPopup(`
+                        <div style="text-align: center;">
+                            <h4>${countryData ? countryData.flag : '🌍'} ${countryName}</h4>
+                            <p><strong>${listenerCount}</strong> oyentes conectados</p>
+                            ${listenerCount > 0 ? '<small style="color: #0277bd;">✅ País activo</small>' : '<small style="color: #999;">Sin oyentes</small>'}
+                        </div>
+                    `);
+                    
+                    // Efectos hover
+                    layer.on({
+                        mouseover: function(e) {
+                            e.target.setStyle({
+                                weight: 3,
+                                color: '#ffffff',
+                                fillOpacity: 0.9
+                            });
+                        },
+                        mouseout: function(e) {
+                            choroplethLayer.resetStyle(e.target);
+                        }
+                    });
+                }
+            }).addTo(map);
+            
+            updateStatus('✅ ¡Mapa de coropletas creado exitosamente! Países con oyentes mostrados en azul.', 'success');
+        }
+        
+        // Cargar datos GeoJSON
+        async function loadCountriesGeoJSON() {
+            try {
+                updateStatus('📡 Cargando datos GeoJSON...', 'loading');
+                
+                const response = await fetch('./countries.geojson');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                countriesGeoJSON = await response.json();
+                updateStatus(`✅ Datos GeoJSON cargados: ${countriesGeoJSON.features.length} países`, 'success');
+                
+                setTimeout(() => {
+                    createChoroplethLayer();
+                }, 500);
+                
+            } catch (error) {
+                updateStatus(`❌ Error al cargar GeoJSON: ${error.message}`, 'error');
+                console.error('Error:', error);
+            }
+        }
+        
+        // Inicializar mapa
+        function initializeMap() {
+            updateStatus('🌍 Inicializando mapa...', 'loading');
+            
+            map = L.map('map').setView([20, 0], 2);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© Test Choropleth'
+            }).addTo(map);
+            
+            loadCountriesGeoJSON();
+        }
+        
+        // Inicializar cuando se carga la página
+        document.addEventListener('DOMContentLoaded', initializeMap);
+    </script>
+</body>
+</html>
